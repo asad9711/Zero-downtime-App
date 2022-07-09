@@ -19,20 +19,8 @@ import (
 func customLogger(msg string, obj ...interface{}) {
 	fmt.Println("kafka reader ===>> ", msg, obj)
 }
-func startListener() {
-	// fmt.Println("sleeping for 60 secs")
-	// time.Sleep(60 * time.Second)
 
-	fmt.Println("this app will start only after kafka service is up")
-
-	// brokers := strings.Split("host.docker.internal:9092", ",")
-	// brokers := strings.Split("docker.for.mac.host.internal:9092", ",")
-	// brokers := strings.Split("192.168.65.2:9092", ",")
-	brokers := strings.Split(constants.BROKERS, ",")
-	fmt.Println("BROKER ***** ", brokers)
-
-	// create topic
-
+func createTopic() {
 	// to create topics when auto.create.topics.enable='false'
 	topic := constants.TopicName
 
@@ -70,8 +58,20 @@ func startListener() {
 		fmt.Println("successfully created topic -> ", topic)
 	}
 
-	fmt.Println("sleeping for 5 secs")
-	time.Sleep(5 * time.Second)
+}
+
+func startListener() {
+	// fmt.Println("sleeping for 60 secs")
+	// time.Sleep(60 * time.Second)
+
+	// brokers := strings.Split("host.docker.internal:9092", ",")
+	// brokers := strings.Split("docker.for.mac.host.internal:9092", ",")
+	// brokers := strings.Split("192.168.65.2:9092", ",")
+	brokers := strings.Split(constants.BROKERS, ",")
+	fmt.Println("BROKER ***** ", brokers)
+
+	// fmt.Println("sleeping for 5 secs")
+	// time.Sleep(5 * time.Second)
 
 	hostname, _ := os.Hostname()
 	config := kafka.ReaderConfig{
