@@ -1,9 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"listener_app/constants"
 	"listener_app/consumers"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -13,11 +13,13 @@ import (
 	"syscall"
 	"time"
 
+	"listener_app/server"
+
 	"github.com/segmentio/kafka-go"
 )
 
 func customLogger(msg string, obj ...interface{}) {
-	fmt.Println("kafka reader ===>> ", msg, obj)
+	log.Println("kafka reader ===>> ", msg, obj)
 }
 
 func createTopic() {
@@ -26,7 +28,7 @@ func createTopic() {
 
 	conn, err := kafka.Dial("tcp", "broker:9092")
 	if err != nil {
-		fmt.Println("unable to connect to kafka broker at broker:9092")
+		log.Println("unable to connect to kafka broker at broker:9092")
 		panic(err.Error())
 	}
 	defer conn.Close()
@@ -52,62 +54,57 @@ func createTopic() {
 
 	err = controllerConn.CreateTopics(topicConfigs...)
 	if err != nil {
-		fmt.Println("error in creating topic")
+		log.Println("error in creating topic")
 		panic(err.Error())
 	} else {
-		fmt.Println("successfully created topic -> ", topic)
+		log.Println("successfully created topic -> ", topic)
 	}
 
 }
 
+// create connection to kafka, and start listening -> processing incoming messages
 func startListener() {
-	// fmt.Println("sleeping for 60 secs")
-	// time.Sleep(60 * time.Second)
-
 	// brokers := strings.Split("host.docker.internal:9092", ",")
 	// brokers := strings.Split("docker.for.mac.host.internal:9092", ",")
 	// brokers := strings.Split("192.168.65.2:9092", ",")
-	brokers := strings.Split(constants.BROKERS, ",")
-	fmt.Println("BROKER ***** ", brokers)
-
-	// fmt.Println("sleeping for 5 secs")
-	// time.Sleep(5 * time.Second)
+	brokers := strings.Split(constants.Brokers, ",")
+	log.Println("BROKER ***** ", brokers)
 
 	hostname, _ := os.Hostname()
 	config := kafka.ReaderConfig{
 		Brokers:        brokers,
 		GroupID:        hostname,
 		Topic:          constants.TopicName,
-		MinBytes:       1,    // 10KB
-		MaxBytes:       10e6, // 10MB
+		MinBytes:       1,
+		MaxBytes:       10e6,
 		CommitInterval: 200 * time.Second,
 		RetentionTime:  time.Minute,
-		Logger:         kafka.LoggerFunc(customLogger),
 		ErrorLogger:    kafka.LoggerFunc(customLogger),
-		//MaxWait:         100 * time.Microsecond, // Maximum amount of time to wait for new data to come when fetching batches of messages dividerChannel kafka.
-		//ReadLagInterval: -1,
 	}
 
 	reader := kafka.NewReader(config)
 	defer reader.Close()
 
 	var wg sync.WaitGroup
-	fmt.Println("Starting to consume messages")
+	log.Println("Starting to consume messages")
 
 	go consumers.ListenForMessage(reader, &wg)
 
 	processKillSignal := make(chan os.Signal, 1)
-	signal.Notify(processKillSignal, syscall.SIGINT)
+	// to get notified if pod gets restarted/stopped
+	signal.Notify(processKillSignal, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGSTOP)
 
-	fmt.Println("waiting to receive on sigterm signal")
+	log.Println("waiting to receive on sigterm signal")
 
 	<-processKillSignal
 
-	fmt.Println("received process kill signal. Waiting for processes in the waitgroup to complete")
+	log.Println("received process kill signal. Waiting for processes in the waitgroup to complete")
 	wg.Wait()
-	fmt.Println("All processes in waitgroup complete.  Exiting ...........")
+	log.Println("All processes in waitgroup complete.  Exiting ...........")
 }
-func main() {
 
+func main() {
+	// this service should expose a health endpoint, which k8 can use to ascertain the liveness of the pod
+	go server.StartServer()
 	startListener()
 }
