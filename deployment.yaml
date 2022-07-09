@@ -5,7 +5,7 @@ metadata:
   labels:
     app: listener-app-k8
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: listener-app-k8
@@ -18,3 +18,19 @@ spec:
         - name: listener-app-k8
           imagePullPolicy: Never
           image: listener-app-image
+          readinessProbe:
+            failureThreshold: 0 
+            httpGet:
+              path: /health
+              port: 8090
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 15
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
